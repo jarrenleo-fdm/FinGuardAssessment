@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinGuard Claims Tester</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <div>
+        <p class="eyebrow">Training Sandbox</p>
+        <h1>FinGuard Claims Tester</h1>
+        <p class="subtitle">Submit mock insurance claims against the local API.</p>
+      </div>
+      <div class="status-pill" id="healthStatus">Checking API...</div>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <h2>Submit Claim</h2>
+        <form id="claimForm">
+          <div class="field-row">
+            <label>
+              Claim ID
+              <input type="text" name="claimId" value="CLM-001" required />
+            </label>
+            <label>
+              Policy ID
+              <select name="policyId" required>
+                <option value="POL-001">POL-001 — Jane Doe ($50,000)</option>
+                <option value="POL-002">POL-002 — John Smith ($100,000)</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label>
+              Claim Amount ($)
+              <input type="number" name="amount" value="2500" min="0" step="0.01" required />
+            </label>
+            <label>
+              Provider ID
+              <input type="text" name="providerId" value="PRV-100" required />
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label>
+              Patient Name
+              <input type="text" name="patientName" value="Jane Doe" required />
+            </label>
+            <label>
+              Social Security Number
+              <input type="text" name="socialSecurityNumber" value="123-45-6789" required />
+            </label>
+          </div>
+
+          <label>
+            Medical Condition
+            <input type="text" name="medicalCondition" value="Type 2 Diabetes" required />
+          </label>
+
+          <label>
+            Claim Description
+            <textarea name="claimDescription" rows="3" required>Routine endocrinology follow-up and lab work.</textarea>
+          </label>
+
+          <div class="field-row">
+            <label>
+              Diagnosis Codes
+              <input type="text" name="diagnosisCodes" value="E11.9, Z79.4" placeholder="Comma-separated" />
+            </label>
+            <label>
+              Submission Date
+              <input type="date" name="submissionDate" required />
+            </label>
+          </div>
+
+          <label>
+            Provider Notes
+            <textarea name="providerNotes" rows="2">Patient stable on current medication regimen.</textarea>
+          </label>
+
+          <div class="field-row">
+            <label>
+              Prior Claims Count
+              <input type="number" name="priorClaimsCount" value="0" min="0" />
+            </label>
+            <label>
+              Flagged Keywords
+              <input type="text" name="flaggedKeywords" placeholder="e.g. urgent, fraud" />
+            </label>
+          </div>
+
+          <label class="checkbox">
+            <input type="checkbox" name="geoMismatch" />
+            Geo mismatch detected
+          </label>
+
+          <div class="actions">
+            <button type="button" id="fillFraudBtn" class="secondary">Load Fraud Scenario</button>
+            <button type="button" id="fillCleanBtn" class="secondary">Load Clean Scenario</button>
+            <button type="submit" id="submitBtn">Submit Claim</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>API Response</h2>
+        <div id="responseMeta" class="response-meta hidden"></div>
+        <pre id="responseOutput" class="response-output">Submit a claim to see the API response.</pre>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

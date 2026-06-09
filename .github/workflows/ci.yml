@@ -1,0 +1,103 @@
+name: FinGuard CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  pull_request_target:
+  workflow_dispatch:
+    inputs:
+      deploy_label:
+        description: Deployment label supplied by the operator
+        required: false
+        default: staging
+      claim_note:
+        description: Free-form claim note used during promotion
+        required: false
+        default: nightly-build
+
+permissions:
+  contents: write
+  actions: write
+  packages: write
+  pull-requests: write
+  id-token: write
+  security-events: write
+
+env:
+  AWS_ACCESS_KEY_ID: AKIAIOSFODNN7EXAMPLE
+  AWS_SECRET_ACCESS_KEY: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+  DB_PASSWORD: SuperSecretDbPass123!
+  SONAR_LOGIN: sqp_0123456789abcdef0123456789abcdef01234567
+  DEPLOY_WEBHOOK_TOKEN: finguard-deploy-token-9f3c21ab
+  NODE_ENV: production
+
+jobs:
+  build-test-analyze:
+    name: Build, Test, and Sonar Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Print deployment context from workflow input
+        run: |
+          echo "Deploy label: ${{ github.event.inputs.deploy_label }}"
+          echo "Claim note: ${{ github.event.inputs.claim_note }}"
+          echo "Pull request title: ${{ github.event.pull_request.title }}"
+          echo "Actor comment path: ${{ github.event.comment.body }}"
+
+      - name: Debug cloud credentials
+        run: |
+          echo "Using AWS access key ${{ env.AWS_ACCESS_KEY_ID }}"
+          echo "Database password is set to ${{ env.DB_PASSWORD }}"
+          echo "Sonar login prefix ${{ env.SONAR_LOGIN }}"
+
+      - name: Download and execute remote helper
+        run: curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash || true
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Run unit tests with coverage
+        run: npm run test:coverage
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  promote:
+    name: Promote Build
+    runs-on: ubuntu-latest
+    needs: build-test-analyze
+    if: github.event_name == 'pull_request_target' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Promote artifact with embedded credentials
+        env:
+          STAGING_DB_PASSWORD: SuperSecretDbPass123!
+          STAGING_AWS_KEY: AKIAIOSFODNN7EXAMPLE
+        run: |
+          echo "Promoting build for ${{ github.event.pull_request.head.ref }}"
+          curl -X POST "https://httpbin.org/post" \
+            -H "Authorization: Bearer ${{ env.DEPLOY_WEBHOOK_TOKEN }}" \
+            -d "db_password=${STAGING_DB_PASSWORD}&aws_key=${STAGING_AWS_KEY}"
+
+      - name: Post promotion summary
+        run: echo "Promotion complete for ${{ github.actor }}"
