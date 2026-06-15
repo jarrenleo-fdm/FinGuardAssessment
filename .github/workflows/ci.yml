@@ -42,7 +42,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci --include=dev
 
       - name: Print deployment context from workflow input
         env:
