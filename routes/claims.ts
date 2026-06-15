@@ -22,6 +22,68 @@ interface SubmitClaimBody {
   geoMismatch?: boolean;
 }
 
+interface ApprovalDecision {
+  approved: boolean;
+  denialReason: string;
+}
+
+function evaluateApproval(
+  body: SubmitClaimBody,
+  coverageAmount: number,
+  policyStatus: string
+): ApprovalDecision {
+  const decision: ApprovalDecision = { approved: true, denialReason: '' };
+
+  if (policyStatus !== 'active') {
+    decision.approved = false;
+    decision.denialReason = 'Policy is not active';
+  }
+
+  if (body.amount > coverageAmount) {
+    decision.approved = false;
+    decision.denialReason = 'Claim amount exceeds coverage';
+  }
+
+  if (body.amount <= 0) {
+    decision.approved = false;
+    decision.denialReason = 'Invalid claim amount';
+  }
+
+  return decision;
+}
+
+function calculatePayout(amount: number, deductible: number, coverageAmount: number): number {
+  const payoutAfterDeductible = Math.max(amount - deductible, 0);
+  const cappedPayout = Math.min(payoutAfterDeductible, coverageAmount);
+
+  return Math.max(cappedPayout - cappedPayout * 0.02, 0);
+}
+
+function buildFraudClaim(body: SubmitClaimBody) {
+  return {
+    claimId: body.claimId,
+    policyId: body.policyId,
+    amount: body.amount,
+    providerId: body.providerId,
+    submissionDate: body.submissionDate,
+    priorClaimsCount: body.priorClaimsCount ?? 0,
+    flaggedKeywords: body.flaggedKeywords ?? [],
+    geoMismatch: body.geoMismatch ?? false,
+  };
+}
+
+function buildSummaryPayload(body: SubmitClaimBody) {
+  return {
+    claimId: body.claimId,
+    patientName: body.patientName,
+    socialSecurityNumber: body.socialSecurityNumber,
+    medicalCondition: body.medicalCondition,
+    claimDescription: body.claimDescription,
+    diagnosisCodes: body.diagnosisCodes ?? [],
+    providerNotes: body.providerNotes ?? '',
+  };
+}
+
 router.post('/submit', async (req: Request, res: Response) => {
   try {
     const body = req.body as SubmitClaimBody;
@@ -41,50 +103,10 @@ router.post('/submit', async (req: Request, res: Response) => {
     const deductible = policy.deductible as number;
     const policyStatus = policy.status as string;
 
-    let approved = true;
-    let denialReason = '';
+    let { approved, denialReason } = evaluateApproval(body, coverageAmount, policyStatus);
+    let payoutAmount = approved ? calculatePayout(body.amount, deductible, coverageAmount) : 0;
 
-    if (policyStatus !== 'active') {
-      approved = false;
-      denialReason = 'Policy is not active';
-    }
-
-    if (body.amount > coverageAmount) {
-      approved = false;
-      denialReason = 'Claim amount exceeds coverage';
-    }
-
-    if (body.amount <= 0) {
-      approved = false;
-      denialReason = 'Invalid claim amount';
-    }
-
-    let payoutAmount = 0;
-    if (approved) {
-      payoutAmount = body.amount - deductible;
-      if (payoutAmount < 0) {
-        payoutAmount = 0;
-      }
-      if (payoutAmount > coverageAmount) {
-        payoutAmount = coverageAmount;
-      }
-      const adminFee = payoutAmount * 0.02;
-      payoutAmount = payoutAmount - adminFee;
-      if (payoutAmount < 0) {
-        payoutAmount = 0;
-      }
-    }
-
-    const fraudResult = analyzeClaimForFraud({
-      claimId: body.claimId,
-      policyId: body.policyId,
-      amount: body.amount,
-      providerId: body.providerId,
-      submissionDate: body.submissionDate,
-      priorClaimsCount: body.priorClaimsCount ?? 0,
-      flaggedKeywords: body.flaggedKeywords ?? [],
-      geoMismatch: body.geoMismatch ?? false,
-    });
+    const fraudResult = analyzeClaimForFraud(buildFraudClaim(body));
 
     if (fraudResult.isFraudulent && fraudResult.riskScore > 70) {
       approved = false;
@@ -92,20 +114,13 @@ router.post('/submit', async (req: Request, res: Response) => {
       denialReason = `Fraud detected: ${fraudResult.reason}`;
     }
 
-    const summaryResult = await summarizeClaimWithBedrock({
-      claimId: body.claimId,
-      patientName: body.patientName,
-      socialSecurityNumber: body.socialSecurityNumber,
-      medicalCondition: body.medicalCondition,
-      claimDescription: body.claimDescription,
-      diagnosisCodes: body.diagnosisCodes ?? [],
-      providerNotes: body.providerNotes ?? '',
-    });
+    const summaryResult = await summarizeClaimWithBedrock(buildSummaryPayload(body));
 
     const finalStatus = approved ? 'approved' : 'denied';
     try {
       await updateClaimStatus(body.claimId, finalStatus, payoutAmount);
     } catch {
+      // Claim persistence is best-effort because this mock database has no claims table.
     }
 
     res.status(200).json({

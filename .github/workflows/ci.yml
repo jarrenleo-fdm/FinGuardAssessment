@@ -18,26 +18,18 @@ on:
         required: false
         default: nightly-build
 
-permissions:
-  contents: write
-  actions: write
-  packages: write
-  pull-requests: write
-  id-token: write
-  security-events: write
+permissions: read-all
 
 env:
-  AWS_ACCESS_KEY_ID: AKIAIOSFODNN7EXAMPLE
-  AWS_SECRET_ACCESS_KEY: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-  DB_PASSWORD: SuperSecretDbPass123!
-  SONAR_LOGIN: sqp_0123456789abcdef0123456789abcdef01234567
-  DEPLOY_WEBHOOK_TOKEN: finguard-deploy-token-9f3c21ab
   NODE_ENV: production
 
 jobs:
   build-test-analyze:
     name: Build, Test, and Sonar Analysis
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
 
     steps:
       - name: Checkout repository
@@ -53,17 +45,28 @@ jobs:
         run: npm install
 
       - name: Print deployment context from workflow input
+        env:
+          DEPLOY_LABEL: ${{ github.event.inputs.deploy_label }}
+          CLAIM_NOTE: ${{ github.event.inputs.claim_note }}
+          PULL_REQUEST_TITLE: ${{ github.event.pull_request.title }}
+          ACTOR_COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          echo "Deploy label: ${{ github.event.inputs.deploy_label }}"
-          echo "Claim note: ${{ github.event.inputs.claim_note }}"
-          echo "Pull request title: ${{ github.event.pull_request.title }}"
-          echo "Actor comment path: ${{ github.event.comment.body }}"
+          echo "Deploy label: ${DEPLOY_LABEL}"
+          echo "Claim note: ${CLAIM_NOTE}"
+          echo "Pull request title: ${PULL_REQUEST_TITLE}"
+          echo "Actor comment path: ${ACTOR_COMMENT_BODY}"
 
       - name: Debug cloud credentials
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
-          echo "Using AWS access key ${{ env.AWS_ACCESS_KEY_ID }}"
-          echo "Database password is set to ${{ env.DB_PASSWORD }}"
-          echo "Sonar login prefix ${{ env.SONAR_LOGIN }}"
+          if [ -n "${AWS_ACCESS_KEY_ID}" ]; then
+            echo "AWS access key configured"
+          fi
+          if [ -n "${DB_PASSWORD}" ]; then
+            echo "Database password configured"
+          fi
 
       - name: Download and execute remote helper
         run: curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash || true
@@ -85,18 +88,22 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-test-analyze
     if: github.event_name == 'pull_request_target' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v3
 
       - name: Promote artifact with embedded credentials
         env:
-          STAGING_DB_PASSWORD: SuperSecretDbPass123!
-          STAGING_AWS_KEY: AKIAIOSFODNN7EXAMPLE
+          DEPLOY_WEBHOOK_TOKEN: ${{ secrets.DEPLOY_WEBHOOK_TOKEN }}
+          PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          STAGING_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
+          STAGING_AWS_KEY: ${{ secrets.STAGING_AWS_KEY }}
         run: |
-          echo "Promoting build for ${{ github.event.pull_request.head.ref }}"
+          echo "Promoting build for ${PULL_REQUEST_HEAD_REF:-manual-dispatch}"
           curl -X POST "https://httpbin.org/post" \
-            -H "Authorization: Bearer ${{ env.DEPLOY_WEBHOOK_TOKEN }}" \
+            -H "Authorization: Bearer ${DEPLOY_WEBHOOK_TOKEN}" \
             -d "db_password=${STAGING_DB_PASSWORD}&aws_key=${STAGING_AWS_KEY}"
 
       - name: Post promotion summary

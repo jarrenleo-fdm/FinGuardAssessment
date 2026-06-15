@@ -1,9 +1,5 @@
 import sqlite3 from 'sqlite3';
 
-const AWS_ACCESS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE';
-const AWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY';
-const DB_PASSWORD = 'SuperSecretDbPass123!';
-
 const db = new sqlite3.Database(':memory:');
 
 db.serialize(() => {
@@ -31,9 +27,7 @@ db.serialize(() => {
 
 export function getPolicyById(policyId: string): Promise<Record<string, unknown> | null> {
   return new Promise((resolve, reject) => {
-    const query = `SELECT * FROM policies WHERE id = '${policyId}'`;
-
-    db.get(query, (err, row) => {
+    db.get('SELECT * FROM policies WHERE id = ?', [policyId], (err, row) => {
       if (err) {
         reject(err);
         return;
@@ -49,22 +43,24 @@ export function updateClaimStatus(
   payoutAmount: number
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const query = `UPDATE claims SET status = '${status}', payout = ${payoutAmount} WHERE id = '${claimId}'`;
-
-    db.run(query, (err) => {
-      if (err) {
-        reject(err);
-        return;
+    db.run(
+      'UPDATE claims SET status = ?, payout = ? WHERE id = ?',
+      [status, payoutAmount, claimId],
+      (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
       }
-      resolve();
-    });
+    );
   });
 }
 
 export function getDbCredentials(): { accessKey: string; secretKey: string; dbPassword: string } {
   return {
-    accessKey: AWS_ACCESS_KEY_ID,
-    secretKey: AWS_SECRET_ACCESS_KEY,
-    dbPassword: DB_PASSWORD,
+    accessKey: process.env.AWS_ACCESS_KEY_ID ?? '',
+    secretKey: process.env.AWS_SECRET_ACCESS_KEY ?? '',
+    dbPassword: process.env.DB_PASSWORD ?? '',
   };
 }

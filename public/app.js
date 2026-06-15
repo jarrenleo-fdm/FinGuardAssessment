@@ -22,6 +22,11 @@ function getToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function getString(data, name) {
+  const value = data.get(name);
+  return typeof value === 'string' ? value : '';
+}
+
 function buildPayload() {
   const data = new FormData(form);
 
@@ -33,7 +38,7 @@ function buildPayload() {
     socialSecurityNumber: data.get('socialSecurityNumber'),
     medicalCondition: data.get('medicalCondition'),
     claimDescription: data.get('claimDescription'),
-    diagnosisCodes: String(data.get('diagnosisCodes') || '')
+    diagnosisCodes: getString(data, 'diagnosisCodes')
       .split(',')
       .map((code) => code.trim())
       .filter(Boolean),
@@ -41,7 +46,7 @@ function buildPayload() {
     providerId: data.get('providerId'),
     submissionDate: data.get('submissionDate'),
     priorClaimsCount: Number(data.get('priorClaimsCount') || 0),
-    flaggedKeywords: String(data.get('flaggedKeywords') || '')
+    flaggedKeywords: getString(data, 'flaggedKeywords')
       .split(',')
       .map((keyword) => keyword.trim())
       .filter(Boolean),

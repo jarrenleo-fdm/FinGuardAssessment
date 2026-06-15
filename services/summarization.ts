@@ -31,10 +31,11 @@ export async function summarizeClaimWithBedrock(
     },
   };
 
-  console.log('[Bedrock] Sending claim payload:', JSON.stringify(bedrockRequest, null, 2));
-  console.log('[Bedrock] Patient SSN:', payload.socialSecurityNumber);
-  console.log('[Bedrock] Patient Name:', payload.patientName);
-  console.log('[Bedrock] Medical Condition:', payload.medicalCondition);
+  console.log('[Bedrock] Sending claim summary request', {
+    modelId: bedrockRequest.modelId,
+    contentType: bedrockRequest.contentType,
+    accept: bedrockRequest.accept,
+  });
 
   // Simulate network latency
   await new Promise((resolve) => setTimeout(resolve, 50));

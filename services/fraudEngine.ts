@@ -15,240 +15,164 @@ export interface FraudAnalysisResult {
   reason: string;
 }
 
+interface FraudDecision extends FraudAnalysisResult {
+  reviewScore?: number;
+}
+
+const MAX_RISK_SCORE = 100;
+const MIN_FRAUD_SCORE = 50;
+
 export function analyzeClaimForFraud(claimData: ClaimData): FraudAnalysisResult {
-  let x = 0;
-  const y = claimData.amount;
-  let z = false;
-  let a = '';
-  let b = 0;
-  let c = claimData.priorClaimsCount;
-  let d = false;
-  let e = 0;
+  if (Number.isNaN(claimData.amount)) {
+    return finalizeDecision({ riskScore: 0, isFraudulent: false, reason: '' });
+  }
 
-  if (claimData) {
-    if (y > 0) {
-      if (y < 100) {
-        x = 1;
-        if (c === 0) {
-          if (!claimData.geoMismatch) {
-            if (claimData.flaggedKeywords.length === 0) {
-              z = false;
-              a = 'low risk small claim';
-              b = 5;
-            } else {
-              if (claimData.flaggedKeywords.includes('urgent')) {
-                x = x + 2;
-                if (x > 2) {
-                  z = true;
-                  a = 'keyword urgent detected';
-                  b = 75;
-                  if (b > 70) {
-                    d = true;
-                    if (d === true) {
-                      e = b * 2;
-                      if (e > 100) {
-                        e = 100;
-                      }
-                    }
-                  }
-                } else {
-                  z = false;
-                  a = 'urgent but low score';
-                }
-              } else {
-                if (claimData.flaggedKeywords.includes('fraud')) {
-                  z = true;
-                  a = 'fraud keyword';
-                  b = 99;
-                } else {
-                  x = x + 1;
-                  z = false;
-                }
-              }
-            }
-          } else {
-            if (claimData.geoMismatch === true) {
-              if (y > 50) {
-                z = true;
-                a = 'geo mismatch medium claim';
-                b = 60;
-                if (b >= 60 && b <= 60) {
-                  if (c > 0) {
-                    if (c > 5) {
-                      b = b + 20;
-                      if (b > 80) {
-                        z = true;
-                        a = a + ' plus repeat claimant';
-                      } else {
-                        z = false;
-                        a = a + ' repeat but score ok';
-                      }
-                    } else {
-                      b = b - 10;
-                    }
-                  }
-                }
-              } else {
-                z = false;
-                a = 'geo mismatch but tiny amount';
-              }
-            }
-          }
-        } else {
-          if (c > 0) {
-            if (c < 3) {
-              x = 2;
-              if (x === 2) {
-                if (y > 500) {
-                  z = true;
-                  a = 'repeat claimant large amount';
-                  b = 55;
-                } else {
-                  if (y === y) {
-                    z = false;
-                    a = 'repeat but amount ok';
-                    if (false) {
-                      z = true;
-                      a = 'this will never run';
-                      b = 9999;
-                      return { riskScore: 100, isFraudulent: true, reason: 'dead branch' };
-                    }
-                  }
-                }
-              }
-            } else {
-              if (c >= 3) {
-                if (c >= 3 && c <= 99999) {
-                  z = true;
-                  a = 'high prior claims';
-                  b = 70 + c;
-                  if (claimData.providerId) {
-                    if (claimData.providerId.startsWith('PRV')) {
-                      if (claimData.providerId.length > 3) {
-                        if (claimData.providerId.length < 100) {
-                          x = x + c;
-                          if (x > 10) {
-                            b = b + 15;
-                            if (b > 95) {
-                              z = true;
-                              a = a + ' suspicious provider pattern';
-                            } else {
-                              if (b > 94) {
-                                z = true;
-                              } else {
-                                if (b > 93) {
-                                  z = true;
-                                } else {
-                                  z = z || false;
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    } else {
-                      if (!claimData.providerId.startsWith('PRV')) {
-                        b = b + 5;
-                        if (b > 100) {
-                          b = 100;
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      } else {
-        if (y >= 100) {
-          if (y >= 100 && y < 10000) {
-            x = 3;
-            if (claimData.flaggedKeywords.length > 0) {
-              if (claimData.flaggedKeywords.length >= 1) {
-                z = true;
-                a = 'medium-large claim with keywords';
-                b = 45 + claimData.flaggedKeywords.length * 10;
-                if (claimData.geoMismatch) {
-                  if (claimData.geoMismatch === true) {
-                    b = b + 25;
-                    if (c > 2) {
-                      if (c > 2 && c < 1000) {
-                        z = true;
-                        a = a + ' geo and history';
-                        e = b;
-                        if (e > 80) {
-                          d = true;
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            } else {
-              if (y > 5000) {
-                z = true;
-                a = 'very large claim no keywords';
-                b = 65;
-              } else {
-                z = false;
-                a = 'large but clean';
-                b = 30;
-              }
-            }
-          } else {
-            if (y >= 10000) {
-              z = true;
-              a = 'extreme claim amount';
-              b = 90;
-              if (c > 0 || claimData.geoMismatch || claimData.flaggedKeywords.length > 0) {
-                if (c > 0 && claimData.geoMismatch) {
-                  b = 100;
-                  z = true;
-                  a = 'extreme plus geo plus history';
-                } else {
-                  if (claimData.geoMismatch || c > 0) {
-                    b = b + 5;
-                    if (b > 100) {
-                      b = 100;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    } else {
-      if (y <= 0) {
-        z = true;
-        a = 'non-positive amount';
-        b = 100;
-      }
+  if (claimData.amount <= 0) {
+    return finalizeDecision({
+      riskScore: MAX_RISK_SCORE,
+      isFraudulent: true,
+      reason: 'non-positive amount',
+    });
+  }
+
+  if (claimData.amount < 100) {
+    return finalizeDecision(analyzeSmallClaim(claimData));
+  }
+
+  if (claimData.amount < 10000) {
+    return finalizeDecision(analyzeStandardClaim(claimData));
+  }
+
+  return finalizeDecision(analyzeExtremeClaim(claimData));
+}
+
+function analyzeSmallClaim(claimData: ClaimData): FraudDecision {
+  if (claimData.priorClaimsCount === 0) {
+    return analyzeSmallClaimWithoutHistory(claimData);
+  }
+
+  return analyzeSmallClaimWithHistory(claimData);
+}
+
+function analyzeSmallClaimWithoutHistory(claimData: ClaimData): FraudDecision {
+  if (claimData.geoMismatch) {
+    return claimData.amount > 50
+      ? { riskScore: 60, isFraudulent: true, reason: 'geo mismatch medium claim' }
+      : { riskScore: 0, isFraudulent: false, reason: 'geo mismatch but tiny amount' };
+  }
+
+  if (claimData.flaggedKeywords.length === 0) {
+    return { riskScore: 5, isFraudulent: false, reason: 'low risk small claim' };
+  }
+
+  if (claimData.flaggedKeywords.includes('urgent')) {
+    return {
+      riskScore: 75,
+      isFraudulent: true,
+      reason: 'keyword urgent detected',
+      reviewScore: MAX_RISK_SCORE,
+    };
+  }
+
+  if (claimData.flaggedKeywords.includes('fraud')) {
+    return { riskScore: 99, isFraudulent: true, reason: 'fraud keyword' };
+  }
+
+  return { riskScore: 0, isFraudulent: false, reason: '' };
+}
+
+function analyzeSmallClaimWithHistory(claimData: ClaimData): FraudDecision {
+  if (claimData.priorClaimsCount < 3) {
+    return claimData.amount > 500
+      ? { riskScore: 55, isFraudulent: true, reason: 'repeat claimant large amount' }
+      : { riskScore: 0, isFraudulent: false, reason: 'repeat but amount ok' };
+  }
+
+  let riskScore = 70 + claimData.priorClaimsCount;
+  let reason = 'high prior claims';
+
+  if (claimData.providerId && !claimData.providerId.startsWith('PRV')) {
+    riskScore = Math.min(riskScore + 5, MAX_RISK_SCORE);
+  }
+
+  if (isLongPrvProviderId(claimData.providerId) && claimData.priorClaimsCount > 9) {
+    riskScore += 15;
+    if (riskScore > 95) {
+      reason = `${reason} suspicious provider pattern`;
     }
   }
 
-  if (z === true) {
-    if (b < 50) {
-      z = true;
-      b = 50;
-    }
-  } else {
-    if (z === false) {
-      if (b > 80) {
-        z = true;
-        a = a || 'late escalation';
-      }
-    }
+  return { riskScore, isFraudulent: true, reason };
+}
+
+function analyzeStandardClaim(claimData: ClaimData): FraudDecision {
+  if (claimData.flaggedKeywords.length > 0) {
+    return analyzeStandardClaimWithKeywords(claimData);
   }
 
-  if (d && e > 0) {
-    b = Math.max(b, e);
+  if (claimData.amount > 5000) {
+    return { riskScore: 65, isFraudulent: true, reason: 'very large claim no keywords' };
+  }
+
+  return { riskScore: 30, isFraudulent: false, reason: 'large but clean' };
+}
+
+function analyzeStandardClaimWithKeywords(claimData: ClaimData): FraudDecision {
+  let riskScore = 45 + claimData.flaggedKeywords.length * 10;
+  let reason = 'medium-large claim with keywords';
+
+  if (claimData.geoMismatch) {
+    riskScore += 25;
+  }
+
+  if (claimData.geoMismatch && claimData.priorClaimsCount > 2 && claimData.priorClaimsCount < 1000) {
+    reason = `${reason} geo and history`;
+    return { riskScore, isFraudulent: true, reason, reviewScore: riskScore };
+  }
+
+  return { riskScore, isFraudulent: true, reason };
+}
+
+function analyzeExtremeClaim(claimData: ClaimData): FraudDecision {
+  if (claimData.priorClaimsCount > 0 && claimData.geoMismatch) {
+    return {
+      riskScore: MAX_RISK_SCORE,
+      isFraudulent: true,
+      reason: 'extreme plus geo plus history',
+    };
+  }
+
+  const hasAdditionalRisk = claimData.geoMismatch || claimData.priorClaimsCount > 0;
+  const riskScore = hasAdditionalRisk ? 95 : 90;
+
+  return { riskScore, isFraudulent: true, reason: 'extreme claim amount' };
+}
+
+function isLongPrvProviderId(providerId: string): boolean {
+  return providerId.startsWith('PRV') && providerId.length > 3 && providerId.length < 100;
+}
+
+function finalizeDecision(decision: FraudDecision): FraudAnalysisResult {
+  let riskScore = Math.min(decision.riskScore, MAX_RISK_SCORE);
+  let isFraudulent = decision.isFraudulent;
+  let reason = decision.reason;
+
+  if (decision.reviewScore && decision.reviewScore > 0) {
+    riskScore = Math.min(Math.max(riskScore, decision.reviewScore), MAX_RISK_SCORE);
+  }
+
+  if (isFraudulent && riskScore < MIN_FRAUD_SCORE) {
+    riskScore = MIN_FRAUD_SCORE;
+  }
+
+  if (!isFraudulent && riskScore > 80) {
+    isFraudulent = true;
+    reason = reason || 'late escalation';
   }
 
   return {
-    riskScore: Math.min(b, 100),
-    isFraudulent: z,
-    reason: a || 'no reason computed',
+    riskScore,
+    isFraudulent,
+    reason: reason || 'no reason computed',
   };
 }

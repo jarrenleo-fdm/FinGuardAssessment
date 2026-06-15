@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import express from 'express';
 import claimsRouter from './routes/claims';
 
@@ -11,6 +11,7 @@ const publicDir = fs.existsSync(path.join(__dirname, 'public'))
   : path.join(__dirname, '..', 'public');
 
 app.use(express.json());
+app.disable('x-powered-by');
 app.use(express.static(publicDir));
 
 app.get('/health', (_req, res) => {
